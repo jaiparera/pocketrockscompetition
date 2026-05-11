@@ -7,6 +7,13 @@ from typing import Dict, List, Mapping, Optional, Sequence
 from .contracts import ActiveProduct, OwnedProduct, ProductDefinition, Suit
 
 DEFAULT_PRODUCTS_PER_GAME = 4
+RESOURCE_NAME_BY_SUIT = {
+    Suit.RUBY: "Brick",
+    Suit.SAPPHIRE: "Wood",
+    Suit.EMERALD: "Ore",
+    Suit.AMETHYST: "Sheep",
+    Suit.DIAMOND: "Wheat",
+}
 
 
 def empty_requirement() -> Dict[Suit, int]:
@@ -47,21 +54,23 @@ def build_product_catalog() -> List[ProductDefinition]:
     for suit in suits:
         req = empty_requirement()
         req[suit] = 2
-        catalog.append(ProductDefinition(f"prod-spec-same2-{suit.name}", f"Pair of {suit.name}", req, 5))
+        catalog.append(ProductDefinition(f"prod-spec-same2-{suit.name}", f"Pair of {RESOURCE_NAME_BY_SUIT[suit]}", req, 5))
 
     for combo in combinations(suits, 2):
         req = empty_requirement()
         for suit in combo:
             req[suit] = 1
         key = "-".join(s.name for s in combo)
-        catalog.append(ProductDefinition(f"prod-spec-diff2-{key}", f"Pair {key}", req, 5))
+        label = "-".join(RESOURCE_NAME_BY_SUIT[s] for s in combo)
+        catalog.append(ProductDefinition(f"prod-spec-diff2-{key}", f"Pair {label}", req, 5))
 
     for combo in combinations(suits, 3):
         req = empty_requirement()
         for suit in combo:
             req[suit] = 1
         key = "-".join(s.name for s in combo)
-        catalog.append(ProductDefinition(f"prod-spec-diff3-{key}", f"Set {key}", req, 10))
+        label = "-".join(RESOURCE_NAME_BY_SUIT[s] for s in combo)
+        catalog.append(ProductDefinition(f"prod-spec-diff3-{key}", f"Set {label}", req, 10))
 
     return catalog
 
@@ -151,4 +160,3 @@ def claim_eligible_products_for_winner(
         active_products[idx] = updated
         claimed.append(updated)
     return claimed
-

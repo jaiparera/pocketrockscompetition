@@ -78,7 +78,7 @@ class PlayerPublicState:
     player_id: int
     name: str
     cash: int
-    gems_owned: Tuple[Card, ...]
+    resources_owned: Tuple[Card, ...]
     loans: Tuple[LoanPosition, ...]
     investments: Tuple[InvestmentPosition, ...]
     products: Tuple[OwnedProduct, ...]
@@ -97,9 +97,9 @@ class PlayerPrivateState:
 class TurnContext:
     turn_index: int
     action: Action
-    upcoming_gems: Tuple[Card, ...]
-    biddable_pile_count: int
-    tiebreak_leader_id: int
+    upcoming_resources: Tuple[Card, ...]
+    resource_deck_count: int
+    priority_marker_id: int
     seating_order: Tuple[int, ...]
 
 
@@ -116,8 +116,8 @@ class AuctionResult:
     action: Action
     winner_id: int
     winning_bid: int
-    auctioned_gems: Tuple[Card, ...]
-    new_tiebreak_leader_id: int
+    auctioned_resources: Tuple[Card, ...]
+    new_priority_marker_id: int
     claimed_products: Tuple[str, ...]
     bids: Optional[Tuple[int, ...]] = None
 
@@ -202,12 +202,12 @@ def legal_max_bid(obs: GameObservation) -> int:
     return max(0, obs.me.cash)
 
 
-def count_gems(cards: Iterable[Card]) -> Dict[Suit, int]:
+def count_resources(cards: Iterable[Card]) -> Dict[Suit, int]:
     out: Dict[Suit, int] = {s: 0 for s in Suit}
     for c in cards:
         out[c.suit] += 1
     return out
 
 
-def count_owned_gems(cards: Sequence[Card]) -> Dict[Suit, int]:
-    return count_gems(cards)
+def count_owned_resources(cards: Sequence[Card]) -> Dict[Suit, int]:
+    return count_resources(cards)

@@ -1,16 +1,16 @@
 from competition.interface import *
-from bots.helpers import _current_item, _best_trinket_bonus_if_win, _bundle_value, _affordable
+from bots.helpers import _current_item, _best_product_bonus_if_win, _bundle_value, _affordable
 
 # -----------------------------
-# Bot 3: GreedyTrinket
-# - Values only gems + immediate trinket points.
+# Bot 3: GreedyProduct
+# - Values only resources + immediate product points.
 # - Ignores loans/investments except as "usually bad".
 # -----------------------------
 
-class GreedyTrinketBot(PocketRocketsBot):
+class GreedyProductBot(PocketRocketsBot):
     @property
     def bot_name(self) -> str:
-        return "GreedyTrinket"
+        return "GreedyProduct"
 
     def get_bid(self, obs: "GameObservation") -> "Bid":
         kind = obs.context.action.kind
@@ -24,8 +24,8 @@ class GreedyTrinketBot(PocketRocketsBot):
         if not cards:
             return Bid(0)
 
-        # Simple value = expected gem values + potential trinkets
-        v = _bundle_value(obs, cards) + _best_trinket_bonus_if_win(obs, cards)
+        # Simple value = expected resource values + potential products
+        v = _bundle_value(obs, cards) + _best_product_bonus_if_win(obs, cards)
 
         # Bid up to ~70% of value, capped
         bid = int(max(0, round(0.7 * v)))

@@ -8,7 +8,24 @@
 - `python run_mixed.py`: sample + private bots (if present)
 - `python benchmark.py`: repeated evaluation with seat split summaries
 - `python demo_game.py`: quick local game smoke run
+- `python play_pygame.py`: local human-vs-bots playable game (3-5 players)
 - `python -m pytest -q`: test suite
+
+## Local Play Setup
+
+1. Install dependencies:
+   - `pip install -r requirements.txt`
+2. Launch local play:
+   - `python play_pygame.py`
+
+Notes:
+- The playable mode always tries to load both public and private bots.
+- If `local/private_bots/registry.py` is missing or empty, it falls back to public bots automatically.
+- The table uses PocketRocks player-facing terms: resources, value display, products, and priority marker.
+- The UI shows per-turn bid reveals, recent event log entries, revealed resources by suit, and player inventory/private resource context.
+- Lobby supports selecting which bots fill each non-human seat.
+- Lobby has a Products mode toggle; active products are shown on the table when enabled.
+- Value chart is visible in-table during play.
 
 ## Repo Contract
 

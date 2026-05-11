@@ -44,7 +44,7 @@ class TemplateBot(TwoFunctionBot):
 
     def _suit_counts(self, obs: GameObservation) -> Dict[Suit, int]:
         counts = {s: 0 for s in Suit}
-        for c in obs.me.gems_owned:
+        for c in obs.me.resources_owned:
             counts[c.suit] += 1
         return counts
 
@@ -56,10 +56,10 @@ class TemplateBot(TwoFunctionBot):
         return max(0, min(max_bid, base))
 
     def _stats_adjustment(self, obs: GameObservation) -> int:
-        if not obs.context.upcoming_gems:
+        if not obs.context.upcoming_resources:
             return 0
         counts = self._suit_counts(obs)
-        target = obs.context.upcoming_gems[0].suit
+        target = obs.context.upcoming_resources[0].suit
         rarity_signal = max(0, 3 - counts[target])
         return int(rarity_signal * self.config.stats_weight * 2)
 
@@ -90,4 +90,3 @@ class TemplateBot(TwoFunctionBot):
             key=lambda c: (-suit_counts[c.suit], c.id),
         )[0]
         return reveal.id
-

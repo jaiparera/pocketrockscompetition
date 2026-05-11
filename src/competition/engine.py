@@ -21,7 +21,7 @@ from .contracts import (
     Suit,
     TurnContext,
     ValueChart,
-    count_gems,
+    count_resources,
 )
 from .products import PRODUCT_CATALOG, claim_eligible_products_for_winner, owned_from_active, select_products_for_game
 
@@ -31,10 +31,10 @@ class EngineConfig:
     seed: int = 0
     info_cards_per_player: Optional[Mapping[int, int]] = None
     starting_cash_by_players: Optional[Mapping[int, int]] = None
-    gems_per_suit: int = 6
+    resources_per_suit: int = 6
     action_counts: Optional[Mapping[ActionType, int]] = None
     discard_on_all_pass: bool = False
-    skip_auction2_if_insufficient_gems: bool = False
+    skip_auction2_if_insufficient_resources: bool = False
     products_enabled: bool = True
     products_per_game: int = 4
     product_catalog_override: Optional[Sequence] = None
@@ -62,7 +62,7 @@ class _PlayerState:
     player_id: int
     name: str
     cash: int
-    gems_owned: List[Card]
+    resources_owned: List[Card]
     loans: List[LoanPosition]
     investments: List[InvestmentPosition]
     products: List
@@ -87,13 +87,13 @@ class PocketRocketsEngine:
             for i in range(self._num_players)
         ]
         self._value_chart = value_chart
-        self._gem_draw_pile = self._make_gem_deck(config.gems_per_suit)
+        self._resource_draw_pile = self._make_resource_deck(config.resources_per_suit)
         self._action_draw_pile = self._make_action_deck(config.action_counts)
         self._action_discard: List[Action] = []
         self._past_auctions: List[AuctionResult] = []
-        self._rng.shuffle(self._gem_draw_pile)
+        self._rng.shuffle(self._resource_draw_pile)
         self._rng.shuffle(self._action_draw_pile)
-        self._deal_info_cards(self._gem_draw_pile, config.info_cards_per_player[self._num_players])
+        self._deal_info_cards(self._resource_draw_pile, config.info_cards_per_player[self._num_players])
         self._info_counts_by_suit_at_start = {s: 0 for s in Suit}
         for p in self._players:
             for c in p.unrevealed_info:
@@ -101,16 +101,16 @@ class PocketRocketsEngine:
         self._upcoming: List[Card] = []
         self._refill_upcoming()
         self._seating_order = tuple(range(self._num_players))
-        self._tiebreak_leader_id = self._rng.choice(self._seating_order)
+        self._priority_marker_id = self._rng.choice(self._seating_order)
         self._action_counts_remaining = dict(config.action_counts)
         catalog = list(config.product_catalog_override) if config.product_catalog_override else PRODUCT_CATALOG
         self._active_products = select_products_for_game(catalog, rng=self._rng, per_game=config.products_per_game) if config.products_enabled else []
 
-    def _make_gem_deck(self, gems_per_suit: int) -> List[Card]:
+    def _make_resource_deck(self, resources_per_suit: int) -> List[Card]:
         deck: List[Card] = []
         gid = 0
         for suit in Suit:
-            for _ in range(gems_per_suit):
+            for _ in range(resources_per_suit):
                 deck.append(Card(id=f"G{gid}", suit=suit))
                 gid += 1
         return deck
@@ -124,14 +124,14 @@ class PocketRocketsEngine:
                 aid += 1
         return deck
 
-    def _deal_info_cards(self, gem_deck: List[Card], per_player: int) -> None:
+    def _deal_info_cards(self, resource_deck: List[Card], per_player: int) -> None:
         for i in range(self._num_players):
             for _ in range(per_player):
-                self._players[i].unrevealed_info.append(gem_deck.pop())
+                self._players[i].unrevealed_info.append(resource_deck.pop())
 
     def _refill_upcoming(self) -> None:
-        while len(self._upcoming) < 2 and self._gem_draw_pile:
-            self._upcoming.append(self._gem_draw_pile.pop())
+        while len(self._upcoming) < 2 and self._resource_draw_pile:
+            self._upcoming.append(self._resource_draw_pile.pop())
 
     def _build_public_state(self) -> GamePublicState:
         players = tuple(
@@ -139,7 +139,7 @@ class PocketRocketsEngine:
                 player_id=p.player_id,
                 name=p.name,
                 cash=p.cash,
-                gems_owned=tuple(p.gems_owned),
+                resources_owned=tuple(p.resources_owned),
                 loans=tuple(p.loans),
                 investments=tuple(p.investments),
                 products=tuple(p.products),
@@ -170,7 +170,7 @@ class PocketRocketsEngine:
             info_cards_unrevealed=tuple(self._players[player_id].unrevealed_info),
             info_cards_revealed=tuple(self._players[player_id].revealed_info),
         )
-        context = TurnContext(turn_index, action, tuple(self._upcoming), len(self._gem_draw_pile), self._tiebreak_leader_id, self._seating_order)
+        context = TurnContext(turn_index, action, tuple(self._upcoming), len(self._resource_draw_pile), self._priority_marker_id, self._seating_order)
         me = next(p for p in public.players if p.player_id == player_id)
         return GameObservation(public=public, private=private, context=context, me=me)
 
@@ -190,7 +190,7 @@ class PocketRocketsEngine:
             return -1, 0
         if len(tied) == 1:
             return tied[0], max_bid
-        return self._tie_break_winner(tied, self._tiebreak_leader_id), max_bid
+        return self._tie_break_winner(tied, self._priority_marker_id), max_bid
 
     def _collect_bids(self, turn_index: int, action: Action) -> List[int]:
         bids = [0] * self._num_players
@@ -220,7 +220,7 @@ class PocketRocketsEngine:
 
     def _compute_score(self, p: _PlayerState) -> int:
         total = p.cash
-        for g in p.gems_owned:
+        for g in p.resources_owned:
             idx = min(self._info_counts_by_suit_at_start[g.suit], len(self._value_chart.mapping) - 1)
             total += self._value_chart.mapping[idx]
         for inv in p.investments:
@@ -234,7 +234,7 @@ class PocketRocketsEngine:
         turn_index = 0
         started = False
         while True:
-            if len(self._upcoming) == 0 and len(self._gem_draw_pile) == 0:
+            if len(self._upcoming) == 0 and len(self._resource_draw_pile) == 0:
                 break
             if not self._action_draw_pile:
                 if not self._action_discard:
@@ -247,7 +247,7 @@ class PocketRocketsEngine:
             self._action_counts_remaining[action.kind] = max(0, self._action_counts_remaining.get(action.kind, 0) - 1)
             if action.kind == ActionType.AUCTION_1 and len(self._upcoming) < 1:
                 continue
-            if action.kind == ActionType.AUCTION_2 and self._cfg.skip_auction2_if_insufficient_gems and len(self._upcoming) < 2:
+            if action.kind == ActionType.AUCTION_2 and self._cfg.skip_auction2_if_insufficient_resources and len(self._upcoming) < 2:
                 continue
             if not started:
                 for pid, bot in enumerate(self._bots):
@@ -258,32 +258,32 @@ class PocketRocketsEngine:
                 started = True
             bids = self._collect_bids(turn_index, action)
             winner_id, winning_bid = self._resolve_winner(bids)
-            new_leader = self._tiebreak_leader_id if winner_id < 0 else winner_id
+            new_leader = self._priority_marker_id if winner_id < 0 else winner_id
             if winner_id >= 0:
                 self._players[winner_id].cash -= winning_bid
             auctioned: List[Card] = []
             claimed_ids: List[str] = []
             if action.kind == ActionType.AUCTION_1:
-                gem = self._upcoming.pop(0)
-                auctioned.append(gem)
+                resource = self._upcoming.pop(0)
+                auctioned.append(resource)
                 if winner_id >= 0:
-                    self._players[winner_id].gems_owned.append(gem)
+                    self._players[winner_id].resources_owned.append(resource)
                     if self._cfg.products_enabled:
-                        counts = count_gems(self._players[winner_id].gems_owned)
+                        counts = count_resources(self._players[winner_id].resources_owned)
                         claimed = claim_eligible_products_for_winner(self._active_products, winner_id, counts)
                         for prod in claimed:
                             self._players[winner_id].products.append(owned_from_active(prod))
                             claimed_ids.append(prod.id)
                 self._refill_upcoming()
             elif action.kind == ActionType.AUCTION_2:
-                gems = [self._upcoming.pop(0)]
+                resources = [self._upcoming.pop(0)]
                 if self._upcoming:
-                    gems.append(self._upcoming.pop(0))
-                auctioned.extend(gems)
+                    resources.append(self._upcoming.pop(0))
+                auctioned.extend(resources)
                 if winner_id >= 0:
-                    self._players[winner_id].gems_owned.extend(gems)
+                    self._players[winner_id].resources_owned.extend(resources)
                     if self._cfg.products_enabled:
-                        counts = count_gems(self._players[winner_id].gems_owned)
+                        counts = count_resources(self._players[winner_id].resources_owned)
                         claimed = claim_eligible_products_for_winner(self._active_products, winner_id, counts)
                         for prod in claimed:
                             self._players[winner_id].products.append(owned_from_active(prod))
@@ -299,7 +299,7 @@ class PocketRocketsEngine:
                     payout = 5 if action.kind == ActionType.INVESTMENT_5 else 10
                     self._players[winner_id].investments.append(InvestmentPosition(id=f"I{turn_index}", payout=payout, locked=winning_bid))
             result = AuctionResult(turn_index, action, winner_id, winning_bid, tuple(auctioned), new_leader, tuple(claimed_ids), tuple(bids))
-            self._tiebreak_leader_id = new_leader
+            self._priority_marker_id = new_leader
             self._past_auctions.append(result)
             for pid, bot in enumerate(self._bots):
                 try:
@@ -315,7 +315,7 @@ class PocketRocketsEngine:
                     GameObservation(
                         public=final_public,
                         private=PlayerPrivateState(pid, tuple(self._players[pid].unrevealed_info), tuple(self._players[pid].revealed_info)),
-                        context=TurnContext(turn_index, Action(id="END", kind=ActionType.AUCTION_1), tuple(self._upcoming), len(self._gem_draw_pile), self._tiebreak_leader_id, self._seating_order),
+                        context=TurnContext(turn_index, Action(id="END", kind=ActionType.AUCTION_1), tuple(self._upcoming), len(self._resource_draw_pile), self._priority_marker_id, self._seating_order),
                         me=next(p for p in final_public.players if p.player_id == pid),
                     )
                 )
@@ -324,4 +324,3 @@ class PocketRocketsEngine:
         scores = [(p.player_id, p.name, self._compute_score(p)) for p in self._players]
         scores.sort(key=lambda x: x[2], reverse=True)
         return {"final_scores": scores, "winner_id": scores[0][0] if scores else -1, "history": tuple(self._past_auctions), "final_public_state": final_public}
-

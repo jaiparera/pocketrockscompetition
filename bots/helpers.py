@@ -11,7 +11,7 @@ def _my_id(obs: "GameObservation") -> int:
 
 def _suit_value(obs: "GameObservation", suit: "Suit") -> int:
     """
-    Expected per-gem value from chart given current revealed info.
+    Expected per-resource value from chart given current revealed info.
     We approximate unknown info using the prior mean of remaining counts.
     This keeps bots simple but not totally dumb.
     """
@@ -20,12 +20,12 @@ def _suit_value(obs: "GameObservation", suit: "Suit") -> int:
     # Total info cards dealt at start is known: unrevealed counts are explicit.
     total_info = 0
     for p in obs.public.players:
-        total_info += p.unrevealed_info_count + len(p.revealed_info)
+        total_info += p.unrevealed_resource_count + len(p.revealed_resources)
 
     # Known revealed counts by suit (public)
     known: Dict[Suit, int] = {s: 0 for s in Suit}
     for p in obs.public.players:
-        for c in p.revealed_info:
+        for c in p.revealed_resources:
             known[c.suit] += 1
 
     known_total = sum(known.values())
@@ -52,17 +52,17 @@ def _bundle_value(obs: "GameObservation", cards: Tuple["Card", ...]) -> int:
     return sum(_suit_value(obs, c.suit) for c in cards)
 
 
-def _best_trinket_bonus_if_win(obs: "GameObservation", gained: Tuple["Card", ...]) -> int:
+def _best_product_bonus_if_win(obs: "GameObservation", gained: Tuple["Card", ...]) -> int:
     """
-    Approximate immediate trinket gain if we win and add gained cards.
+    Approximate immediate product gain if we win and add gained cards.
     Assumes we might claim multiple; uses actual objective_satisfied helper.
     """
     me_pub = obs.me
-    after = list(me_pub.gems_owned) + list(gained)
+    after = list(me_pub.resources_owned) + list(gained)
 
     bonus = 0
-    for ts in obs.public.trinkets:
-        if ts.claimed_by is not None:
+    for ts in obs.public.products:
+        if ts.claimed_by_player_id is not None:
             continue
         if objective_satisfied(ts.objective, after):
             bonus += ts.objective.points
@@ -76,11 +76,11 @@ def _affordable(bid: int, obs: "GameObservation") -> int:
 def _current_item(obs: "GameObservation") -> Tuple[Tuple["Card", ...], str]:
     """Returns (auctioned_cards, kind_string)."""
     kind = obs.context.action.kind
-    up = obs.context.upcoming_gems
+    up = obs.context.upcoming_resources
     if kind == ActionType.AUCTION_1:
-        return (tuple(up[:1]), "GEMS")
+        return (tuple(up[:1]), "RESOURCES")
     if kind == ActionType.AUCTION_2:
-        return (tuple(up[:2]), "GEMS")
+        return (tuple(up[:2]), "RESOURCES")
     if kind in (ActionType.LOAN_10, ActionType.LOAN_20):
         return (tuple(), "LOAN")
     if kind in (ActionType.INVESTMENT_5, ActionType.INVESTMENT_10):
