@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import importlib.util
 from dataclasses import dataclass
@@ -7,6 +7,7 @@ from typing import Callable, Iterable, List, Sequence
 
 from src.bots.samples.always_pass_bot import AlwaysPassBot
 from src.bots.samples.random_bid_bot import RandomBidBot
+from src.bots.samples.value_trader_bot import ValueTraderBot
 from src.competition.contracts import PocketRocketsBot, ValueChart
 from src.competition.simulator import BotEntry
 
@@ -31,7 +32,19 @@ SAMPLE_BOTS: List[BotSpec] = [
     BotSpec("AlwaysPass", lambda: AlwaysPassBot()),
     BotSpec("RandomBidA", lambda: RandomBidBot(seed=7)),
     BotSpec("RandomBidB", lambda: RandomBidBot(seed=19)),
+    BotSpec("ValueTrader", lambda: ValueTraderBot(risk=0.9)),
 ]
+
+
+def make_value_trader_specs(risks: Sequence[float]) -> List[BotSpec]:
+    return [
+        BotSpec(name=f"ValueTrader(r={risk:.2f})", factory=(lambda r=risk: ValueTraderBot(risk=float(r))))
+        for risk in risks
+    ]
+
+
+def baseline_public_specs() -> List[BotSpec]:
+    return [s for s in SAMPLE_BOTS if not s.name.startswith("ValueTrader")]
 
 
 def _load_specs_from_path(module_name: str, file_path: Path, symbol: str) -> List[BotSpec]:
